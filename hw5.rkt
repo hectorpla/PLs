@@ -51,7 +51,7 @@
 ;; We will test eval-under-env by calling it directly even though
 ;; "in real life" it would be a helper function of eval-exp.
 (define (eval-under-env e env)
-  (cond [(var? e) 
+  (cond [(var? e)
          (envlookup env (var-string e))]
         [(add? e) 
          (let ([v1 (eval-under-env (add-e1 e) env)]
@@ -74,22 +74,23 @@
            (if (and (int? v1)
                     (int? v2))
                (if (> (int-num v1) (int-num v2))
-                   (ifgreater-e3 e)
-                   (ifgreater-e4 e))
+                   (eval-under-env (ifgreater-e3 e) env)
+                   (eval-under-env (ifgreater-e4 e) env))
                (error "MUPL ifgreater applied to non-number")))]
         [(call? e)
-         (if (closure? (call-funexp e))
-             (let* ([fun (closure-fun (call-funexp e))]
-                    [fun-name (fun-nameopt fun)]
-                    [fun-arg (fun-formal fun)]
-                    [fun-body (fun-body fun)]
-                    [val (eval-under-env (call-actual e) env)]
-                    [new-env (cons (cons fun-arg val) env)])
-               (let ([final-env (if fun-name
-                                    (cons (cons fun-name (call-funexp e) new-env))
-                                    new-env)])
-                     (eval-under-env fun-body final-env)))
-             (error "MUPL call applied to non-closure"))]
+         (let ([subexp1 (eval-under-env (call-funexp e) env)])
+           (if (closure? subexp1)
+               (let* ([fun (closure-fun subexp1)]
+                      [fun-name (fun-nameopt fun)]
+                      [fun-arg (fun-formal fun)]
+                      [fun-body (fun-body fun)]
+                      [val (eval-under-env (call-actual e) env)]
+                      [new-env (cons (cons fun-arg val) (closure-env subexp1))] ; add parameter to env
+                      [final-env (if fun-name
+                                     (cons (cons fun-name subexp1) new-env)
+                                     new-env)])
+                   (eval-under-env fun-body final-env))
+               (error "MUPL call applied to non-closure")))]
         [(mlet? e)
          (let* ([str (mlet-var e)]
                 [val (eval-under-env (mlet-e e) env)]
@@ -100,15 +101,16 @@
                [v2 (eval-under-env (apair-e2 e) env)])
                   (apair v1 v2))]
         [(fst? e)
-         (if (apair? (fst-e e))
-             (let ([pr (eval-under-env (fst-e e) env)])
-               (apair-e1 pr))
-             (error "MUPL fst applied to non-pair"))]
+         ; (print "Debug fst: ")
+         (let ([val (eval-under-env (fst-e e) env)])
+           (if (apair? val)
+               (apair-e1 val)
+               (error "MUPL fst applied to non-apair")))]
         [(snd? e)
-         (if (apair? (snd-e e))
-             (let ([pr (eval-under-env (snd-e e) env)])
-               (apair-e2 pr))
-             (error "MUPL snd applied to non-pair"))]
+         (let ([val (eval-under-env (snd-e e) env)])
+           (if (apair? val)
+               (apair-e2 val)
+               (error "MUPL snd applied to non-apair")))]
         [(isaunit? e)
          (if (aunit? (eval-under-env (isaunit-e e) env))
              (int 1)
@@ -137,13 +139,38 @@
                                e4
                                e3))))
 
-;; Problem 4
 
-(define mupl-map "CHANGE")
+; self-written recursive test
+(define mupl-incUntilTen
+  (fun "incUntilTen" "i"
+       (ifgreater (var "i") (int 9)
+                  (var "i")
+                  (call (var "incUntilTen") (add (var "i") (int 1))))))
+
+; test for mlet binding for function value
+(define mupl-addN
+  (fun #f "N"
+       ;(mlet "n" (var "N")
+       (fun #f "base"
+            (add (var "base") (var "N")))));)
+
+;; Problem 4
+(define mupl-map
+  (fun #f "transformer"
+       (fun "mapper" "lst"
+            (ifaunit (var "lst")
+                     (aunit)
+                     (apair (call (var "transformer")
+                                  (fst (var "lst")))
+                            (call (var "mapper") (snd (var "lst"))))))))
 
 (define mupl-mapAddN 
   (mlet "map" mupl-map
-        "CHANGE (notice map is now in MUPL scope)"))
+        ; "CHANGE (notice map is now in MUPL scope)"
+        (fun #f "i"
+             (fun "mapper" "lst"
+                  (call (call mupl-map (fun "#f" "x" (add (var "x") (var "i"))))
+                        (var "lst"))))))
 
 ;; Challenge Problem
 
