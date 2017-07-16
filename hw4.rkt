@@ -11,13 +11,13 @@
   (map (lambda (x) (string-append x suffix)) xs))
 
 ; not correct if n is negative multiple of the length of xs
-(define (list-n-mod-rec xs n)
-  (let ([nn (remainder n (length xs))])
-    (cond
-      [(< nn 0) (error "list-nth-mod: negative number")]
-      [(null? xs) (error "list-nth-mod: empty list")]
-      [(= nn 0) (car xs)]
-      [#t (list-n-mod-rec (cdr xs) (- nn 1))])))
+;(define (list-n-mod-rec xs n)
+;  (let ([nn (remainder n (length xs))])
+;    (cond
+;      [(< nn 0) (error "list-nth-mod: negative number")]
+;      [(null? xs) (error "list-nth-mod: empty list")]
+;      [(= nn 0) (car xs)]
+;      [#t (list-n-mod-rec (cdr xs) (- nn 1))])))
 
 (define (list-nth-mod xs n)
   (cond
@@ -48,6 +48,12 @@
                                               "dog.jpg")))))])
                (f "dan.jpg"))))
 
+; sample solution
+(define dan-then-dog-sample
+  (letrec ([dan-st (lambda () (cons "dan.jpg" dog-st))]
+           [dog-st (lambda () (cons "dog.jpg" dan-st))])
+    dan-st))
+
 (define (stream-add-zero s)
   (lambda ()
     (define pr (s))
@@ -60,6 +66,7 @@
           (lambda () (proc (+ n 1)))))
   (lambda () (proc 0)))
 
+; the if-flow can be written more simply using and
 (define (vector-assoc v vec)
   (letrec ([search (lambda (n)
                      (cond
@@ -69,6 +76,7 @@
                        [#t (search (+ n 1))]))])
     (search 0)))
 
+; the binding for f is redundant, can just return the lambda
 (define (cached-assoc xs n)
   (let* ([cache (make-vector n #f)]
          [cur 0]
@@ -100,6 +108,7 @@
 ;  (define f (my-assoc 2))
 ;  (define g (my-assoc 1)))
 
+; wrong
 (define-syntax while-less
   (syntax-rules (do)
     [(while-less e1 do e2)
@@ -110,3 +119,15 @@
                           #t
                           (loop e2)))])
        (loop r2))]))
+
+; sample
+(define-syntax while-less-sample
+  (syntax-rules (do)
+    ((while-less x do y)
+      (let ([z x])
+        (letrec ([loop (lambda ()
+			                  (let ([w y])
+		 	                    (if (or (not (number? w)) (>= w z))
+			                        #t
+			                        (loop))))])
+          (loop))))))
